@@ -1269,7 +1269,7 @@ table_articles_byAuth <-
     grepl("PubmedArticle", substr(x, 1, 20))
   })) == length(pubmed_data)) {
 
-    paper.data <- do.call(c, paper.data)
+    paper.data <- do.call(c, pubmed_data)
     
   } else {
     stop("Bad input")
