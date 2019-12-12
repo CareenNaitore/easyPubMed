@@ -1286,6 +1286,10 @@ table_articles_byAuth <-
   
   expFields <- c("pmid", "doi", "title", "abstract", "year", "month", "day", "jabbrv", 
                  "journal", "keywords", "lastname", "firstname", "address", "email")
+  
+  curWarn <- options()$warn
+  options(warn = -1)
+  
   papers.authors.list <- lapply(1:length(paper.data), (function(i) {
     if (length(paper.data) > 50) {
       rep.dot <- as.integer(seq(1, length(paper.data), 
@@ -1347,6 +1351,8 @@ table_articles_byAuth <-
                })
     }
   }
+  
+  options(warn = curWarn)
   return(papers.authors.df)
 }
  
