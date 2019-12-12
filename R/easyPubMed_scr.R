@@ -66,6 +66,7 @@ function(pubmedArticle,
                           getAuthors = TRUE) 
 {
   #
+  currWarn <- options()$warn
   options(warn = -1)
   
   # Nested f(x)
@@ -126,7 +127,8 @@ function(pubmedArticle,
   # "keywords", "lastname", "firstname", "address", "email" 
   
   # Global Check!
-  if (class(pubmedArticle) != "character" |
+  if (class(pubmedArticle)[1] != "character" ||
+      length(pubmedArticle) != 1 ||
       regexpr("(<PubmedArticle)(.+)(\\/PubmedArticle>)", pubmedArticle) < 0 )
   {
     message("An error occurred")
@@ -143,6 +145,10 @@ function(pubmedArticle,
   # Get started
   tryCatch({
     
+    # fix &amp;
+    pubmedArticle <- gsub("&amp;", "&", pubmedArticle, ignore.case = TRUE)
+    
+    # proceed
     tmp.article <- custom_grep(xml_data = pubmedArticle, tag = "PubmedArticle", format = "char")
     if (is.null(tmp.article)) 
     {
@@ -285,9 +291,12 @@ function(pubmedArticle,
       final.mat <- do.call(rbind, lapply(author.list, (function(al) {
         tmp.lastnm <- custom_grep(xml_data = al, tag = "LastName", format = "char")
         tmp.firstnm <- custom_grep(xml_data = al, tag = "ForeName", format = "char")
-        tmp.email <- regexpr("([[:alnum:]]|\\.|\\-\\_){3,200}@([[:alnum:]]|\\.|\\-\\_){3,200}(\\.)([[:alnum:]]){2,6}", al)
+        email.PAT <- "([[:alnum:]]|\\.|\\-\\_){3,200}@([[:alnum:]]|\\.|\\-\\_){3,200}(\\.)([[:alnum:]]){2,6}"
+        tmp.email <- regexpr(email.PAT, al)
         if (tmp.email > 0) {
           tmp.email <- substr(al, tmp.email, tmp.email + attributes(tmp.email)$match.length -1 )
+          al <- gsub(email.PAT, "", al)
+          
         } else {
           tmp.email <- NA
         }
@@ -336,7 +345,7 @@ function(pubmedArticle,
     }
   }, error = function(e) {NULL}, 
   finally = {
-    options(warn = 0)
+    options(warn = currWarn)
     return(final.mat)
   })
 }
@@ -1392,7 +1401,7 @@ function(addr)
 #' (for example, "ASCII", or "UTF-8", in the same way as it would be given to the function base::iconv(). 
 #' See iconv() help page for how to find out more about encodings that can be used on your platform. 
 #' Here, we recommend using "UTF-8".
-#' @param verbose logical, shall info about the processing status be printed to console 
+#' @verbose logical, shall info about the processing status be printed to console 
 #' 
 #' @return 
 #' List of PubMed articles .
@@ -1404,6 +1413,9 @@ function(addr)
 #' @export
 fetch_PMID_data <- function(pmids, format = "xml", encoding = "UTF-8", verbose = TRUE) 
 {
+  
+  # Hardcoded
+  pmids.per.batch = 100
   
   # custom f(x)
   query_and_fetch <- function(x, format = format, encoding = encoding) {
@@ -1421,7 +1433,7 @@ fetch_PMID_data <- function(pmids, format = "xml", encoding = "UTF-8", verbose =
     nm2 <- as.character(do.call(c, nm2))
     
     # Order
-    nuORD <- as.numeric(sapply(tmp, function(z) {
+    nuORD <- as.numeric(sapply(x, function(z) {
       which(nm2 == z)
     }))      
     r3 <- r2[nuORD]
@@ -1441,12 +1453,12 @@ fetch_PMID_data <- function(pmids, format = "xml", encoding = "UTF-8", verbose =
   out <- list()
   ti <- Sys.time() - 2
   
-  if (length(pmids) < 10) {
+  if (length(pmids) < pmids.per.batch) {
     
     out <- list(query_and_fetch(pmids, format = format, encoding = encoding))
     
   } else {
-    all_i <- seq(1, (length(pmids) - 1), by = 10)
+    all_i <- seq(1, (length(pmids) - 1), by = pmids.per.batch)
     all_i <- c(all_i, (length(pmids) + 1))
     
     for(j in 1:(length(all_i) - 1)) {
